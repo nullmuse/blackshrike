@@ -2,25 +2,29 @@ from scapy.all import *
 import re
 import os 
 import threading 
-from wifi import Cell, Scheme 
+import wireless 
+
+
+
 
 target = '5c:57:1a:b8:26:d0'
 armed = 0
 ap_list = []
+interfaces = []
 
-def monitor_manage(cmd):
-   wifi_file="/proc/net/wireless"
-   if os.path.exists(wifi_file):
-        with open(wifi_file) as f:
-        for line in f.readlines():
-                if not re.search(r'Inter-',line) and not re.search(r'face',line):
-                    iface=line.split(":")[0]
+def get_interface():
+   aa = wireless.Wireless() 
+   return aa.interfaces() 
+
+
+
+def monitor_manage(cmd,wint):
    if iface and cmd == 'start':
       print('Initializing monitor mode [airmon method]')
-      os.system('airmon-ng start {0}'.format(iface.strip()))
+      os.system('airmon-ng start {0}'.format(wint))
    if iface and cmd == 'stop':
       print('Stopping monitor mode [airmon method]')
-      os.system('airmon-ng stop {0}'.format(iface.strip()))
+      os.system('airmon-ng stop {0}'.format(wint))
    else:
       print('Unknown command or bad interface') 
 
@@ -44,14 +48,13 @@ def stop_scan():
    else:
       return False 
 
-def load_mon():
-   mon_interface = [] 
-   with open("/proc/net/dev","r") as f:
-      for line in f.readlines():
+def load_mon(interfaces):
+   mon_interface = '' 
+   for line in interfaces:
          if re.search(r'mon[0-9]+',line):
-            print("Found airmon-ng interface..",line.split(":")[0].strip())
-            mon_interface.append(line.split(":")[0].strip())
-   return mon_interface
+            print('monitor interface identified')
+            mon_interface = line
+            return mon_interface
 
 
 def seek_target():

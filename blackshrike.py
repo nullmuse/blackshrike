@@ -17,6 +17,11 @@ def get_interface():
    return aa.interfaces() 
 
 
+def hijack_drone(target,wint):
+   os.system('iwconfig {0} essid {1}'.format(wint,target[1]))
+   os.system('dhclient {0}'.format(wint))
+   
+   
 
 def monitor_manage(cmd,wint):
    if iface and cmd == 'start':
@@ -33,8 +38,8 @@ def packet_process(pkt):
    global ap_list
    if pkt.haslayer(Dot11):
       if pkt.type == 0 and pkt.subtype == 8:
-         if pkt.addr2 not in ap_list:
-            ap_list.append(pkt.addr2)
+         if (pkt.addr2,pkt.info) not in ap_list:
+            ap_list.append((pkt.addr2,pkt.info))
             print("AP MAC {0} SSID {1}".format(pkt.addr2,pkt.info))
             
 

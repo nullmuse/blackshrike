@@ -26,7 +26,15 @@ def packet_process(pkt):
          if pkt.addr2 not in ap_list:
             ap_list.append(pkt.addr2)
             print "AP MAC {0} SSID {1}".format(pkt.addr2,pkt.info)
+            
 
+def stop_scan():
+   global ap_list
+   global target
+   if target in ap_list:
+      return True
+   else:
+      return False 
 
 def load_mon():
    mon_interface = [] 
@@ -35,8 +43,11 @@ def load_mon():
          if re.search(r'mon[0-9]+',line):
             print "Found airmon-ng interface..",line.split(":")[0].strip()
             mon_interface.append(line.split(":")[0].strip())
-   
+   return mon_interface
 
 
-sniff(iface=mon_int, prn=packet_process)
+def seek_target():
+
+   mons = load_mon() 
+   sniff(iface=mons[0], prn=packet_process, stop_filter=stop_scan)
 

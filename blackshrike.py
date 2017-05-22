@@ -21,7 +21,7 @@ class Deauth(threading.Thread):
 
 auto_target = 'Drone'
 armed = 0
-pkt_count = 20
+pkt_count = 10
 pkt_all = 0
 ap_list = []
 interfaces = []

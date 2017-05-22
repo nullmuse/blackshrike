@@ -2,6 +2,7 @@
 from scapy.all import * 
 import re
 import os 
+import sys
 import threading 
 import wireless 
 import time 
@@ -108,9 +109,9 @@ def gunner_mode():
    interfaces = get_interface()
    wl = '' 
    for item in interfaces:
-   if 'wlan' in item:
-      wl = item
-      break
+      if 'wlan' in item:
+         wl = item
+         break
    targ_id = seek_target()
    Deauth(ap_list[targ_id - 1][0]).start()
    a = raw_input("Deauthing...hit enter when deauth tips you off")
@@ -124,12 +125,18 @@ def murica_mode():
    interfaces = get_interface()
    wl = ''
    for item in interfaces:
-   if 'wlan' in item:
-      wl = item
-      break
+      if 'wlan' in item:
+         wl = item
+         break
    seek_target()
    for item in ap_list:
       if auto_target in item[1]:
          Deauth(item[0]).start() 
    
+
+if len(sys.argv) < 2:
+   print("{0} gunner|murica".format(sys.argv[0]))
+   sys.exit(0)
+sys.argv[1] == 'gunner' and gunner_mode()
+sys.argv[1] == 'murica' and murica_mode() 
 

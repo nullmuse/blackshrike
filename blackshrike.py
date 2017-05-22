@@ -43,7 +43,9 @@ def monitor_manage(cmd):
    for item in ints:
       if 'wlan' in item:
          wint = item
-         break
+      if 'mon' in item and cmd == 'start':
+         print("Monitor mode already enabled. Exiting")
+         return
    if cmd == 'start':
       print('Initializing monitor mode [airmon method]')
       os.system('airmon-ng start {0}'.format(wint))

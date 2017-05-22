@@ -97,7 +97,8 @@ def seek_target():
       print()
       i = input("Enter target: ")
       return int(i)
-      
+   else:
+      return 0      
 
 
 
@@ -118,6 +119,17 @@ def gunner_mode():
    swarm.demon_drone() 
 
 def murica_mode():
+   armed = 1
+   monitor_manage('start')
+   interfaces = get_interface()
+   wl = ''
+   for item in interfaces:
+   if 'wlan' in item:
+      wl = item
+      break
+   seek_target()
+   for item in ap_list:
+      if auto_target in item[1]:
+         Deauth(item[0]).start() 
    
-
 

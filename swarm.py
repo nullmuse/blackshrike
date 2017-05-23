@@ -49,6 +49,9 @@ def finish(drone):
     drone.shutdown()
 
 
+def short_demon(drone):
+    drone.led(3,7,2)
+
 def show_off(drone):
     set_altitude(drone, 400)
     drone.anim(16, 10)
@@ -85,6 +88,8 @@ def demon_drone():
     zombie = ps_drone.Drone()
     zombie.startup()
     zombie.useDemoMode(False)
+    short_demon(zombie)
+    return
     time.sleep(1)
     zombie.getNDpackage(["demo"])
     time.sleep(1)

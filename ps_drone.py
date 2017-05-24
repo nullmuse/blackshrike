@@ -113,7 +113,7 @@ class Drone(object):
             self.printRed()
             print "Drone is not online"
             self.printDefault()
-            sys.exit(9)
+            return False
 
         # Internal variables
         self.__CmdCounter = 3  # as there are two raw commands, send next steps
@@ -209,7 +209,6 @@ class Drone(object):
         except:
             pass
         self.__keepalive.cancel()
-        sys.exit()
 
     ##############################################################=-
     ### Make internal variables to external read-only variables ###=-

